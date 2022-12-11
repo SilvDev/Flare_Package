@@ -32,7 +32,7 @@
 ========================================================================================
 	Change Log:
 
-2.9 (11-Dec-2022)
+2.8 (11-Dec-2022)
 	- L4D2: Added command "sm_flareglow" to toggle glow on Flares to show where they are.
 	- Changes to fix compile warnings on SourceMod 1.11.
 
