@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"2.7"
+#define PLUGIN_VERSION 		"2.8"
 
 /*======================================================================================
 	Plugin Info:
@@ -31,6 +31,10 @@
 
 ========================================================================================
 	Change Log:
+
+2.9 (11-Dec-2022)
+	- L4D2: Added command "sm_flareglow" to toggle glow on Flares to show where they are.
+	- Changes to fix compile warnings on SourceMod 1.11.
 
 2.7 (01-Jul-2021)
 	- Added a warning message to suggest installing the "Attachments API" and "Use Priority Patch" plugins if missing.
@@ -187,7 +191,7 @@ public void OnAllPluginsLoaded()
 	// Use Priority Patch
 	if( FindConVar("l4d_use_priority_version") == null )
 	{
-		LogMessage("\n==========\nWarning: You should install \"[L4D & L4D2] Use Priority Patch\" to fix attached models blocking +USE action. https://forums.alliedmods.net/showthread.php?t=327511\n==========\n");
+		LogMessage("\n==========\nWarning: You should install \"[L4D & L4D2] Use Priority Patch\" to fix attached models blocking +USE action: https://forums.alliedmods.net/showthread.php?t=327511\n==========\n");
 	}
 }
 
@@ -277,10 +281,12 @@ public void OnPluginStart()
 	RegAdminCmd(	"sm_flaresave",		CmdFlareSave,		ADMFLAG_ROOT, 	"Spawns a flare at your crosshair and saves to config. Usage: sm_flaresave <r> <g> <b>.");
 	RegAdminCmd(	"sm_flareset",		CmdFlareSet,		ADMFLAG_ROOT, 	"Usage: sm_flareset <r> <g> <b>. Changes the nearest flare light color and saves to config.");
 	RegAdminCmd(	"sm_flarelist",		CmdFlareList,		ADMFLAG_ROOT, 	"Display a list flare positions and the number of flares.");
+	if( g_bLeft4Dead2 )
+		RegAdminCmd("sm_flareglow",		CmdFlareGlow,		ADMFLAG_ROOT, 	"Toggle placed flares to Glow showing their location.");
 	RegAdminCmd(	"sm_flaredel",		CmdFlareDelete,		ADMFLAG_ROOT, 	"Removes the flare you are nearest to and deletes from the config if saved.");
 	RegAdminCmd(	"sm_flareclear",	CmdFlareClear,		ADMFLAG_ROOT, 	"Removes all fire flares from the current map.");
 	RegAdminCmd(	"sm_flarewipe",		CmdFlareWipe,		ADMFLAG_ROOT, 	"Removes all fire flares from the current map and deletes them from the config.");
-	RegAdminCmd(	"sm_flarebug",		CmdFlareBug,		ADMFLAG_ROOT, 	"When the plugin fails to work during a round, run this command report the error.");
+	RegAdminCmd(	"sm_flarebug",		CmdFlareBug,		ADMFLAG_ROOT, 	"When the plugin fails to work during a round, run this command and report the error.");
 }
 
 public void OnPluginEnd()
@@ -322,18 +328,20 @@ public void OnClientPutInServer(int client)
 	if( !IsFlareValidNow() || IsFakeClient(client) )
 		return;
 
-	int clientID = GetClientUserId(client);
+	client = GetClientUserId(client);
 
 	// Display intro / welcome message
 	if( g_fIntro )
-		CreateTimer(g_fIntro, TimerIntro, clientID, TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(g_fIntro, TimerIntro, client, TIMER_FLAG_NO_MAPCHANGE);
 }
 
-public Action TimerIntro(Handle timer, any client)
+Action TimerIntro(Handle timer, any client)
 {
 	client = GetClientOfUserId(client);
 	if( client && IsClientInGame(client) && GetClientTeam(client) == 2 && IsPlayerAlive(client) )
 		CPrintToChat(client, "%s%T", CHAT_TAG, "Flare Intro", client);
+
+	return Plugin_Continue;
 }
 
 
@@ -346,22 +354,22 @@ public void OnConfigsExecuted()
 	IsAllowed();
 }
 
-public void ConVarChanged_Allow(Handle convar, const char[] oldValue, const char[] newValue)
+void ConVarChanged_Allow(Handle convar, const char[] oldValue, const char[] newValue)
 {
 	IsAllowed();
 }
 
-public void ConVarChanged_Self(Handle convar, const char[] oldValue, const char[] newValue)
+void ConVarChanged_Self(Handle convar, const char[] oldValue, const char[] newValue)
 {
 	GetCvars(1);
 }
 
-public void ConVarChanged_Grnd(Handle convar, const char[] oldValue, const char[] newValue)
+void ConVarChanged_Grnd(Handle convar, const char[] oldValue, const char[] newValue)
 {
 	GetCvars(2);
 }
 
-public void ConVarChanged_Main(Handle convar, const char[] oldValue, const char[] newValue)
+void ConVarChanged_Main(Handle convar, const char[] oldValue, const char[] newValue)
 {
 	GetCvars(3);
 }
@@ -491,7 +499,7 @@ bool IsAllowedGameMode()
 	return true;
 }
 
-public void OnGamemode(const char[] output, int caller, int activator, float delay)
+void OnGamemode(const char[] output, int caller, int activator, float delay)
 {
 	if( strcmp(output, "OnCoop") == 0 )
 		g_iCurrentMode = 1;
@@ -554,7 +562,7 @@ void UnhookEvents()
 	}
 }
 
-public void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
+void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	g_bLoaded = false;
 	g_bRoundOver = true;
@@ -562,17 +570,18 @@ public void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	g_iPlayerSpawn = 0;
 }
 
-public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
+void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	DeleteAllFlares();
 
 	if( g_iPlayerSpawn == 1 && g_iRoundStart == 0 )
 		CreateTimer(1.0, TimerStart, _, TIMER_FLAG_NO_MAPCHANGE);
+
 	g_iRoundStart = 1;
 	g_bRoundOver = false;
 }
 
-public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
+void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
 {
 	if( g_iPlayerSpawn == 0 && g_iRoundStart == 1 )
 		CreateTimer(1.0, TimerStart, _, TIMER_FLAG_NO_MAPCHANGE);
@@ -582,7 +591,7 @@ public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast
 	g_bBlockAutoFlare[client] = false;
 }
 
-public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
+void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
 	if( !client || GetClientTeam(client) != 2 )
@@ -591,7 +600,7 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
 	g_bBlockAutoFlare[client] = true;
 }
 
-public void Event_PlayerIncapped(Event event, const char[] name, bool dontBroadcast)
+void Event_PlayerIncapped(Event event, const char[] name, bool dontBroadcast)
 {
 	if( !IsFlareValidNow() || !g_iIncapped )
 		return;
@@ -602,7 +611,7 @@ public void Event_PlayerIncapped(Event event, const char[] name, bool dontBroadc
 		CreateTimer(2.0, TimerCreateFlare, clientID, TIMER_FLAG_NO_MAPCHANGE); // Auto spawn flare if allowed
 }
 
-public void Event_ReviveSuccess(Event event, const char[] name, bool dontBroadcast)
+void Event_ReviveSuccess(Event event, const char[] name, bool dontBroadcast)
 {
 	if( !IsFlareValidNow() || !g_iIncapped )
 		return;
@@ -612,7 +621,7 @@ public void Event_ReviveSuccess(Event event, const char[] name, bool dontBroadca
 		g_bBlockAutoFlare[client] = false;
 }
 
-public void Event_BlockStart(Event event, const char[] name, bool dontBroadcast)
+void Event_BlockStart(Event event, const char[] name, bool dontBroadcast)
 {
 	if( !IsFlareValidNow() || !g_iIncapped )
 		return;
@@ -622,7 +631,7 @@ public void Event_BlockStart(Event event, const char[] name, bool dontBroadcast)
 		g_bBlockAutoFlare[client] = true;
 }
 
-public void Event_BlockEnd(Event event, const char[] name, bool dontBroadcast)
+void Event_BlockEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	if( !IsFlareValidNow() || !g_iIncapped )
 		return;
@@ -636,7 +645,7 @@ public void Event_BlockEnd(Event event, const char[] name, bool dontBroadcast)
 	}
 }
 
-public void Event_UpgradePack(Event event, const char[] name, bool dontBroadcast)
+void Event_UpgradePack(Event event, const char[] name, bool dontBroadcast)
 {
 	if( !IsFlareValidNow() || !g_bGrndUpgrade )
 		return;
@@ -647,13 +656,13 @@ public void Event_UpgradePack(Event event, const char[] name, bool dontBroadcast
 }
 
 // Call from incap events
-public Action TimerCreateFlare(Handle timer, any userid)
+Action TimerCreateFlare(Handle timer, any userid)
 {
 	// Must be incapped and valid to spawn a flare
 	int client = GetClientOfUserId(userid);
 	if( !IsFlareValidNow() || !IsValidForFlare(client) || IsValidEntRef(g_iFlareTimeout[client]) || g_bBlockAutoFlare[client] ||
 		!IsIncapped(client) || GetFlareIndex(g_iMaxFlares) == -1 )
-		return;
+		return Plugin_Continue;
 
 	// Auto flare on ground or attached?
 	if( g_iIncapped == 1 )
@@ -661,20 +670,22 @@ public Action TimerCreateFlare(Handle timer, any userid)
 	else if( g_iIncapped == 2 )
 		CreateFlare(client, g_sGrndLCols, g_sGrndSCols, false);
 	else
-		return;
+		return Plugin_Continue;
 
 	// Display hint if they are still incapped
 	if( g_bHint && g_fTime < 61.0 && !IsFakeClient(client) )
 		CreateTimer(g_fTime, TimerFlareHintMsg, userid, TIMER_FLAG_NO_MAPCHANGE);
+
+	return Plugin_Continue;
 }
 
-public Action TimerFlareHintMsg(Handle timer, any client)
+Action TimerFlareHintMsg(Handle timer, any client)
 {
 	// Don't affect players who left, maybe a new client
 	client = GetClientOfUserId(client);
 
 	if( !IsFlareValidNow() || !IsValidForFlare(client) )
-		return;
+		return Plugin_Continue;
 
 	// Display hint message if they are still incapped
 	if( g_bHint && IsIncapped(client) )
@@ -684,6 +695,8 @@ public Action TimerFlareHintMsg(Handle timer, any client)
 		else if( g_iSelfCmdAllow )
 			CPrintToChat(client, "%s%T", CHAT_TAG, "Flare Cmd Attach", client);
 	}
+
+	return Plugin_Continue;
 }
 
 
@@ -691,9 +704,10 @@ public Action TimerFlareHintMsg(Handle timer, any client)
 // ====================================================================================================
 //					LOAD FLARES FROM CONFIG
 // ====================================================================================================
-public Action TimerStart(Handle timer)
+Action TimerStart(Handle timer)
 {
 	LoadFlares();
+	return Plugin_Continue;
 }
 
 void LoadFlares()
@@ -755,9 +769,9 @@ void LoadFlares()
 // ====================================================================================================
 //					sm_flarebug
 // ====================================================================================================
-public Action CmdFlareBug(int client, int args)
+Action CmdFlareBug(int client, int args)
 {
-	LogError("Error logging: %0.01f% = %d/%d/%d/%d/%d", GetGameTime(), g_bLoaded, g_bCvarAllow, g_iPlayerSpawn, g_iRoundStart, g_bRoundOver);
+	LogError("Flare plugin error log: %0.01f% = %d/%d/%d/%d/%d", GetGameTime(), g_bLoaded, g_bCvarAllow, g_iPlayerSpawn, g_iRoundStart, g_bRoundOver);
 	ReplyToCommand(client, "[Flare] Please report the problem with the error log in the Flare plugin thread.");
 	return Plugin_Handled;
 }
@@ -765,7 +779,7 @@ public Action CmdFlareBug(int client, int args)
 // ====================================================================================================
 //					sm_flaresave
 // ====================================================================================================
-public Action CmdFlareSave(int client, int args)
+Action CmdFlareSave(int client, int args)
 {
 	if( !g_bCvarAllow )
 	{
@@ -883,7 +897,7 @@ public Action CmdFlareSave(int client, int args)
 // ====================================================================================================
 //					sm_flareset
 // ====================================================================================================
-public Action CmdFlareSet(int client, int args)
+Action CmdFlareSet(int client, int args)
 {
 	if( !g_bCvarAllow )
 	{
@@ -994,7 +1008,7 @@ public Action CmdFlareSet(int client, int args)
 // ====================================================================================================
 //					sm_flarelist
 // ====================================================================================================
-public Action CmdFlareList(int client, int args)
+Action CmdFlareList(int client, int args)
 {
 	float vPos[3];
 	int i, ent, count;
@@ -1024,22 +1038,27 @@ public Action CmdFlareList(int client, int args)
 // ====================================================================================================
 //					sm_flareglow
 // ====================================================================================================
-public Action CmdFlareGlow(int client, int args)
+Action CmdFlareGlow(int client, int args)
 {
-	int i, ent;
+	int i, entity;
 	static bool glow;
 	glow = !glow;
 
 	for( i = 0; i < MAX_FLARES; i++ )
 	{
-		ent = g_iFlares[i][1];
+		entity = g_iFlares[i][1];
 
-		if( IsValidEntRef(ent) )
+		if( IsValidEntRef(entity) )
 		{
+			SetEntProp(entity, Prop_Send, "m_iGlowType", 3);
+			SetEntProp(entity, Prop_Send, "m_glowColorOverride", 255);
+			SetEntProp(entity, Prop_Send, "m_nGlowRange", 9999);
+			SetEntProp(entity, Prop_Send, "m_nGlowRangeMin", 0);
+
 			if( glow )
-				AcceptEntityInput(ent, "StartGlowing");
+				AcceptEntityInput(entity, "StartGlowing");
 			else
-				AcceptEntityInput(ent, "StopGlowing");
+				AcceptEntityInput(entity, "StopGlowing");
 		}
 	}
 
@@ -1050,7 +1069,7 @@ public Action CmdFlareGlow(int client, int args)
 // ====================================================================================================
 //					sm_flaredel
 // ====================================================================================================
-public Action CmdFlareDelete(int client, int args)
+Action CmdFlareDelete(int client, int args)
 {
 	if( !g_bCvarAllow )
 	{
@@ -1195,7 +1214,7 @@ public Action CmdFlareDelete(int client, int args)
 // ====================================================================================================
 //					sm_flareclear
 // ====================================================================================================
-public Action CmdFlareClear(int client, int args)
+Action CmdFlareClear(int client, int args)
 {
 	if( !g_bCvarAllow )
 	{
@@ -1211,7 +1230,7 @@ public Action CmdFlareClear(int client, int args)
 // ====================================================================================================
 //					sm_flarewipe
 // ====================================================================================================
-public Action CmdFlareWipe(int client, int args)
+Action CmdFlareWipe(int client, int args)
 {
 	if( !g_bCvarAllow )
 	{
@@ -1270,7 +1289,7 @@ public Action CmdFlareWipe(int client, int args)
 // ====================================================================================================
 //					COMMANDS - sm_flareclient / sm_flareground
 // ====================================================================================================
-public Action CmdFlareAttach(int client, int args)
+Action CmdFlareAttach(int client, int args)
 {
 	if( args == 0 ) return Plugin_Handled;
 
@@ -1304,7 +1323,7 @@ public Action CmdFlareAttach(int client, int args)
 	return Plugin_Handled;
 }
 
-public Action CmdFlareGround(int client, int args)
+Action CmdFlareGround(int client, int args)
 {
 	if( args == 0 ) return Plugin_Handled;
 
@@ -1431,7 +1450,7 @@ void CommandForceFlare(int client, int target, int args, const char[] sArg, bool
 // ====================================================================================================
 //					COMMANDS - sm_flare, sm_flareme
 // ====================================================================================================
-public Action CmdFlare(int client, int args)
+Action CmdFlare(int client, int args)
 {
 	char sArg[25];
 	GetCmdArgString(sArg, sizeof(sArg));
@@ -1439,7 +1458,7 @@ public Action CmdFlare(int client, int args)
 	return Plugin_Handled;
 }
 
-public Action CmdFlareSelf(int client, int args)
+Action CmdFlareSelf(int client, int args)
 {
 	char sArg[25];
 	GetCmdArgString(sArg, sizeof(sArg));
@@ -1684,7 +1703,7 @@ void GetGroundAngles(float vOrigin[3], float vAngles[3])
 	delete trace;
 }
 
-public bool _TraceFilter(int entity, int contentsMask)
+bool _TraceFilter(int entity, int contentsMask)
 {
 	if( !entity || entity <= MaxClients || !IsValidEntity(entity) ) // dont let WORLD, or invalid entities be hit
 		return false;
@@ -1764,7 +1783,7 @@ bool SetTeleportEndPoint(int client, float vPos[3])
 	return true;
 }
 
-public bool ExcludeSelf_Filter(int entity, int contentsMask, any client)
+bool ExcludeSelf_Filter(int entity, int contentsMask, any client)
 {
 	if( entity == client )
 		return false;
@@ -1784,7 +1803,7 @@ int GetFlareIndex(int total = MAX_FLARES)
 	return -1;
 }
 
-public void OnUser(const char[] output, int caller, int activator, float delay)
+void OnUser(const char[] output, int caller, int activator, float delay)
 {
 	int entity;
 	entity = EntIndexToEntRef(caller);
@@ -2078,9 +2097,9 @@ int MakeLightDynamic(const float vOrigin[3], const float vAngles[3], const char[
 
 	char sTemp[16];
 	if( bFlicker )
-		Format(sTemp, sizeof(sTemp), "6");
+		sTemp = "6";
 	else
-		Format(sTemp, sizeof(sTemp), "0");
+		sTemp = "0";
 	DispatchKeyValue(entity, "style", sTemp);
 	Format(sTemp, sizeof(sTemp), "%s 255", sColor);
 	DispatchKeyValue(entity, "_light", sTemp);
@@ -2203,22 +2222,22 @@ void DeleteFlare(int index)
 
 	entity = g_iFlares[index][1];
 	if( IsValidEntRef(entity) )
-		AcceptEntityInput(entity, "Kill");
+		RemoveEntity(entity);
 
 	entity = g_iFlares[index][2];
 	if( IsValidEntRef(entity) )
 	{
 		AcceptEntityInput(entity, "LightOff");
-		AcceptEntityInput(entity, "Kill");
+		RemoveEntity(entity);
 	}
 
 	entity = g_iFlares[index][3];
 	if( IsValidEntRef(entity) )
-		AcceptEntityInput(entity, "Kill");
+		RemoveEntity(entity);
 
 	entity = g_iFlares[index][4];
 	if( IsValidEntRef(entity) )
-		AcceptEntityInput(entity, "Kill");
+		RemoveEntity(entity);
 
 	entity = g_iFlares[index][5];
 	if( IsValidEntRef(entity) )
@@ -2273,7 +2292,7 @@ bool IsIncapped(int client)
 // ====================================================================================================
 //					SDKHOOKS TRANSMIT
 // ====================================================================================================
-public Action Hook_SetTransmit(int entity, int client)
+Action Hook_SetTransmit(int entity, int client)
 {
 	int iFlare = g_iAttachedFlare[client];
 
