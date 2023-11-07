@@ -1,0 +1,47 @@
+"Phrases"
+{
+	"Flare Cmd Ground"
+	{
+		"chi"		"你可以输入 {green}!flare{default} 来放置一个照明弹."
+	}
+	"Flare Cmd Attach"
+	{
+		"chi"		"你可以输入 {green}!flareme{default} 给自己绑一个照明弹."
+	}
+	"Flare Incapped"
+	{
+		"chi"		"你只能在倒地时使用 {green}!flare{default}."
+	}
+	"Flare Intro"
+	{
+		"chi"		"输入指令: {green}!flare{default} 与 {green}!flareme{default}. 颜色: red, green, blue, purple, orange, yellow, white 或输入三个值介于0-255. 范例: {green}!flare red{default} 或 {green}!flare 255 0 0{default}"
+	}
+	"Flare Invalid Args"
+	{
+		"chi"		"输入参数: {green}!flareclichit <#userid|name> [R G B] [R G B]{default} (RGB值介于0-255). 第一个[R G B]是灯光颜色, 第二个[R G B]是env_steam颜色（如果有开启的话）."
+	}
+	"Flare Invalid Now"
+	{
+		"chi"		"无法执行有效的命令，也许游戏模式错误，或者回合结束，或者是插件已经关闭"
+	}
+	"Flare Invalid Place"
+	{
+		"chi"		"无法放置照明弹，请重新尝试输入{green}!flare{default}."
+	}
+	"Flare Invalid Target"
+	{
+		"chi"		"放置目标无效: 团队错误或目标已没存活."
+	}
+	"Flare Max"
+	{
+		"chi"		"目前照明弹达到最大数量"
+	}
+	"Flare Usage"
+	{
+		"chi"		"用法: {green}!flare <颜色英文名|R G B>{default}. 颜色: red, green, blue, purple, orange, yellow, white. 或三个值介于0-255. 例如: {green}! flare red{default} 或{green}!flare 255 0 0{default}"
+	}
+	"Flare Wait"
+	{
+		"chi"		"输入 {green}!flare{default} 或 {green}!flareme{default} 之前请等待一会儿."
+	}
+}

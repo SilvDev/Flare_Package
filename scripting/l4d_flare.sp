@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"2.8"
+#define PLUGIN_VERSION 		"2.9"
 
 /*======================================================================================
 	Plugin Info:
@@ -31,6 +31,10 @@
 
 ========================================================================================
 	Change Log:
+
+2.9 (07-Nov-2023)
+	- Fixed memory leak. Thanks to "HarryPotter" for reporting.
+	- Added Simplified Chinese and Traditional Chinese translations. Thanks to "HarryPotter" and "CIKK".
 
 2.8 (11-Dec-2022)
 	- L4D2: Added command "sm_flareglow" to toggle glow on Flares to show where they are.
@@ -335,7 +339,7 @@ public void OnClientPutInServer(int client)
 		CreateTimer(g_fIntro, TimerIntro, client, TIMER_FLAG_NO_MAPCHANGE);
 }
 
-Action TimerIntro(Handle timer, any client)
+Action TimerIntro(Handle timer, int client)
 {
 	client = GetClientOfUserId(client);
 	if( client && IsClientInGame(client) && GetClientTeam(client) == 2 && IsPlayerAlive(client) )
@@ -656,7 +660,7 @@ void Event_UpgradePack(Event event, const char[] name, bool dontBroadcast)
 }
 
 // Call from incap events
-Action TimerCreateFlare(Handle timer, any userid)
+Action TimerCreateFlare(Handle timer, int userid)
 {
 	// Must be incapped and valid to spawn a flare
 	int client = GetClientOfUserId(userid);
@@ -679,7 +683,7 @@ Action TimerCreateFlare(Handle timer, any userid)
 	return Plugin_Continue;
 }
 
-Action TimerFlareHintMsg(Handle timer, any client)
+Action TimerFlareHintMsg(Handle timer, int client)
 {
 	// Don't affect players who left, maybe a new client
 	client = GetClientOfUserId(client);
@@ -760,6 +764,8 @@ void LoadFlares()
 
 		MakeFlare(vAng, vPos, sColorL, sColorL, true);
 	}
+
+	delete hFile;
 }
 
 
@@ -1783,7 +1789,7 @@ bool SetTeleportEndPoint(int client, float vPos[3])
 	return true;
 }
 
-bool ExcludeSelf_Filter(int entity, int contentsMask, any client)
+bool ExcludeSelf_Filter(int entity, int contentsMask, int client)
 {
 	if( entity == client )
 		return false;
